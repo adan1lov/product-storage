@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-storage
+spec:
+  type: NodePort
+  selector:
+    app: product-storage
+  ports:
+    - protocol: TCP
+      port: 80
+      nodePort: 30080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-storage
+  labels:
+    app: product-storage
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: product-storage
+  template:
+    metadata:
+      labels:
+        app: product-storage
+    spec:
+      volumes:
+        - name: application-config-volume
+          configMap:
+            name: product-storage
+      containers:
+        - name: product-storage
+          image: aadan1lov/product-storage:1.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: application-config-volume
+              mountPath: /app/config
+          envFrom:
+            - secretRef:
+                name: product-storage
+            - configMapRef:
+                name: product-storage-env
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: product-storage
+data:
+  SPRING_DATASOURCE_PASSWORD: ZXhhbXBsZQ==
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: product-storage-env
+data:
+  JDK_JAVA_OPTIONS: -Dspring.config.additional-location=/app/config/application.yaml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: product-storage
+data:
+  application.yaml: |
+    ---
+    spring:
+      datasource:
+        url: jdbc:postgresql://192.168.0.1:5432/postgres
+        username: postgres
